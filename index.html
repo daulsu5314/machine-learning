@@ -156,6 +156,22 @@
     background:rgba(255,255,255,.04);border-radius:10px;padding:12px 14px}
   .tip b{color:#cfc8ff}
 
+  .notice{
+    background:rgba(255,107,157,.12);
+    border:1px solid rgba(255,107,157,.45);
+    border-radius:16px;padding:16px 20px;margin-bottom:22px;
+  }
+  .notice .nt{font-family:'Jua',sans-serif;font-size:17px;color:#ffb3cd;
+    display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .notice .classmap{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+  .notice .cm{
+    flex:1;min-width:110px;background:var(--bg2);border:1px solid var(--line);
+    border-radius:12px;padding:10px 12px;text-align:center;font-size:15px;
+  }
+  .notice .cm .k{font-family:'Jua',sans-serif;color:var(--muted);font-size:13px;display:block;margin-bottom:3px}
+  .notice .cm .v{font-size:18px}
+  .notice .warn{color:#ffb3cd;font-size:13px;margin-top:10px;line-height:1.6}
+
   .regmsg{font-size:14px;margin-top:10px;min-height:18px}
   .regmsg.ok{color:var(--win)} .regmsg.err{color:var(--lose)}
   .listhead{display:flex;justify-content:space-between;align-items:center;
@@ -174,6 +190,20 @@
   .dbwarn{margin-top:14px;font-size:13px;color:var(--rock);
     background:rgba(255,209,102,.1);border:1px solid rgba(255,209,102,.3);
     border-radius:10px;padding:12px 14px;line-height:1.6}
+
+  .ttable{width:100%;border-collapse:collapse;font-size:14px}
+  .ttable th,.ttable td{padding:11px 10px;text-align:center;border-bottom:1px solid var(--line)}
+  .ttable th{font-family:'Jua',sans-serif;color:var(--muted);font-weight:400;font-size:13px}
+  .ttable td.nm{text-align:left;font-size:15px}
+  .ttable .foolnum{color:var(--scissors);font-family:'Jua',sans-serif}
+  .ttable .defnum{color:var(--paper);font-family:'Jua',sans-serif}
+  .ttable .del{cursor:pointer;color:var(--lose);font-size:13px;
+    background:rgba(255,107,157,.12);border:1px solid rgba(255,107,157,.35);
+    border-radius:8px;padding:5px 10px;box-shadow:none}
+  .ttable .del:active{transform:translateY(1px)}
+  .ttable .empty{color:var(--muted);padding:20px}
+  .strong-badge{font-size:12px;background:rgba(90,209,196,.15);color:var(--paper);
+    border-radius:999px;padding:2px 9px;margin-left:6px}
 
   .intentrow{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
   .intent{
@@ -214,12 +244,27 @@
     <div class="pill"><b>4</b> 승자 판정</div>
   </div>
 
+  <!-- 클래스 순서 주의 -->
+  <div class="notice">
+    <div class="nt">⚠️ Teachable Machine 클래스 순서를 꼭 이렇게!</div>
+    <div class="classmap">
+      <div class="cm"><span class="k">Class 1</span><span class="v">✌️ 가위</span></div>
+      <div class="cm"><span class="k">Class 2</span><span class="v">✊ 바위</span></div>
+      <div class="cm"><span class="k">Class 3</span><span class="v">✋ 보</span></div>
+    </div>
+    <div class="warn">
+      순서가 다르면 막대 색·이모지 매칭과 자동 채점이 어긋나요.
+      TM에서 클래스 이름을 위 순서대로 <b>가위 → 바위 → 보</b>로 만든 뒤 학습시켜 주세요.
+    </div>
+  </div>
+
   <!-- STEP 0 : 모델 등록 & 친구 목록 -->
   <div class="card">
     <h2>📇 우리 반 AI 등록소</h2>
     <p class="hint">
       처음 한 번만, 내 <b>이름</b>과 Teachable Machine <b>모델 링크</b>를 등록하세요.
       그러면 친구들은 긴 주소를 칠 필요 없이 <b>이름만 골라</b> 내 모델을 불러올 수 있어요.
+      <br>📌 등록 전에 클래스가 <b>1=가위, 2=바위, 3=보</b> 순서인지 다시 확인!
     </p>
     <div class="inputrow">
       <input type="text" id="regName" placeholder="이름 (예: 1반 김민수)" style="max-width:200px" />
@@ -289,8 +334,10 @@
   <div class="card">
     <h2>🎯 자동 속이기 라운드</h2>
     <p class="hint">
-      먼저 <b>내가 낼 손모양</b>을 고르고 시작을 눌러요. 5초 동안 그 손모양을
-      <b>일부러 헷갈리게</b> 보여주세요. 5초 뒤 AI가 다른 걸로 예측하면 <b>속이기 성공! +1</b>
+      위에서 고른 <b id="targetName">친구</b>의 모델이 지금 <b>공격 대상</b>이에요.
+      내가 낼 손모양을 고르고 5초 동안 <b>일부러 헷갈리게</b> 보여주세요.
+      <br>· AI를 <b>속이면</b> → 그 모델의 <b>약점(속은 횟수) +1</b>
+      <br>· AI가 <b>맞히면</b> → 그 모델의 <b>상점(방어 성공) +1</b>
     </p>
     <div class="intentrow" id="intentRow">
       <button class="intent" data-i="0" onclick="pickIntent(0)">✌️ 가위</button>
@@ -302,43 +349,57 @@
     </div>
     <div class="countdown" id="countdown"></div>
     <div class="roundresult" id="roundResult"></div>
+
+    <div class="scorebox" style="margin-top:18px">
+      <div class="scorecell">
+        <div class="who">🗡️ 내가 속인 횟수</div>
+        <div class="val" id="foolScore" style="font-size:34px">0</div>
+        <div class="of">이 모델의 약점</div>
+      </div>
+      <div class="scorecell">
+        <div class="who">🛡️ 막아낸 횟수</div>
+        <div class="val" id="defScore" style="font-size:34px">0</div>
+        <div class="of">이 모델의 상점</div>
+      </div>
+    </div>
+    <div class="verdict tie" id="verdict">상대를 고르고 라운드를 시작하세요</div>
+
     <div class="tip" style="margin-top:18px">
-      🔄 라운드를 5번 진행하면 자동으로 아래 "내 모델이 속은 횟수"에 기록돼요.
-      (속이기 성공 = 모델이 속은 것!) 짝도 똑같이 5라운드 해서 비교하세요.
+      🔄 점수는 <b>고른 친구의 모델</b>에 자동 저장돼요. 여러 친구의 모델을 돌아가며 공격해
+      누구 모델이 제일 튼튼한지 겨뤄보세요! 선생님 화면에서 반 전체 현황을 볼 수 있어요.
     </div>
   </div>
 
-  <!-- STEP 3+4 : 대결 점수 -->
+  <footer>적게 속을수록… 아니, 잘 막을수록 똑똑한 AI · 좋은 AI엔 다양하고 충분한 데이터가 필요해요 🧠</footer>
+</div>
+
+<!-- ════════ 선생님 전용 화면 (?teacher 일 때만 표시) ════════ -->
+<div class="wrap" id="teacherView" style="display:none">
+  <header>
+    <div class="title">👩‍🏫 선생님 현황판</div>
+    <div class="subtitle">반 전체 모델의 약점·상점 현황을 보고, 데이터를 관리해요</div>
+    <div class="badge">teacher mode</div>
+  </header>
+
   <div class="card">
-    <h2>⚔️ 속이기 대결 점수</h2>
-    <p class="hint">
-      서로 상대 모델 앞에서 5번씩 속이기를 시도하고, <b>모델이 속은 횟수</b>를 기록해요.
-      <b>적게 속은(=더 똑똑한) 모델</b>이 이깁니다!
-    </p>
-    <div class="scorebox">
-      <div class="scorecell">
-        <div class="who">🟢 내 모델이 속은 횟수</div>
-        <div class="counter">
-          <button onclick="bump('me',-1)">−</button>
-          <span class="val" id="meScore">0</span>
-          <button onclick="bump('me',1)">+</button>
-        </div>
-        <div class="of">/ 5 회 시도</div>
-      </div>
-      <div class="scorecell">
-        <div class="who">🔴 짝 모델이 속은 횟수</div>
-        <div class="counter">
-          <button onclick="bump('you',-1)">−</button>
-          <span class="val" id="youScore">0</span>
-          <button onclick="bump('you',1)">+</button>
-        </div>
-        <div class="of">/ 5 회 시도</div>
-      </div>
+    <div class="listhead">
+      <span>📊 모델별 현황</span>
+      <button class="ghost mini" onclick="loadTeacher()">새로고침 ⟳</button>
     </div>
-    <div class="verdict tie" id="verdict">아직 점수를 입력해 주세요</div>
+    <div id="teacherTable"></div>
   </div>
 
-  <footer>적게 속을수록 똑똑한 AI · 좋은 AI엔 다양하고 충분한 데이터가 필요해요 🧠</footer>
+  <div class="card">
+    <h2>🗑️ 데이터 관리</h2>
+    <p class="hint">학생 모델(URL)을 삭제할 수 있어요. 삭제하려면 PIN을 입력하세요.</p>
+    <div class="inputrow">
+      <input type="text" id="pinInput" placeholder="삭제 PIN (4자리)" style="max-width:160px" />
+      <button class="ghost" onclick="clearAll()" style="box-shadow:0 6px 0 #5a1f2e;background:#3a1420;color:#ffb3cd">전체 비우기 ⚠</button>
+    </div>
+    <div id="teacherMsg" class="regmsg"></div>
+  </div>
+
+  <footer>학생용 화면은 주소에서 <b>?teacher</b>를 빼면 나와요</footer>
 </div>
 
 <script>
@@ -346,8 +407,9 @@
    ▼▼▼ 여기 두 줄만 본인 Supabase 값으로 바꾸세요 ▼▼▼
    (Supabase 대시보드 → Project Settings → Data API / API Keys 에서 복사)
    ════════════════════════════════════════════════════════════ */
-const SUPABASE_URL  = "https://cpnmlvfqstjxwikskhit.supabase.co";   // 예: https://abcd1234.supabase.co
-const SUPABASE_ANON = "sb_publishable_Zo0KKdFY8R_XW64W_pzDkw_PWuTf8O6"; // 예: eyJhbGciOi... (긴 키)
+const SUPABASE_URL  = "여기에_PROJECT_URL_붙여넣기";   // 예: https://abcd1234.supabase.co
+const SUPABASE_ANON = "여기에_ANON_PUBLIC_KEY_붙여넣기"; // 예: eyJhbGciOi... (긴 키)
+const TEACHER_PIN   = "1234";  // 선생님 삭제용 PIN (원하는 값으로 바꾸세요)
 /* ════════════════════════════════════════════════════════════ */
 
 const CLASS_EMOJI = ['✌️','✊','✋'];
@@ -404,7 +466,7 @@ async function loadList(){
   box.innerHTML = '<div class="empty">불러오는 중…</div>';
   try{
     const { data, error } = await sb.from('models')
-      .select('name,url,created_at').order('created_at',{ascending:false});
+      .select('id,name,url,fooled,defended,created_at').order('created_at',{ascending:false});
     if(error) throw error;
     if(!data || data.length===0){
       box.innerHTML = '<div class="empty">아직 등록된 친구가 없어요. 첫 번째로 등록해 보세요!</div>';
@@ -415,7 +477,7 @@ async function loadList(){
       const el = document.createElement('div');
       el.className = 'friend';
       el.textContent = '👤 ' + row.name;
-      el.onclick = ()=>chooseFriend(el, row.url);
+      el.onclick = ()=>chooseFriend(el, row);
       box.appendChild(el);
     });
   }catch(e){
@@ -423,10 +485,17 @@ async function loadList(){
   }
 }
 
-function chooseFriend(el, url){
+let target = null;
+function chooseFriend(el, row){
   document.querySelectorAll('.friend').forEach(f=>f.classList.remove('sel'));
   el.classList.add('sel');
-  $('modelUrl').value = url;
+  target = { id: row.id, name: row.name, url: row.url,
+             fooled: row.fooled||0, defended: row.defended||0 };
+  $('modelUrl').value = row.url;
+  $('targetName').textContent = row.name;
+  $('foolScore').textContent = target.fooled;
+  $('defScore').textContent = target.defended;
+  updateVerdict();
   $('modelUrl').scrollIntoView({behavior:'smooth', block:'center'});
 }
 
@@ -456,6 +525,13 @@ async function startApp(){
     $('camwrap').appendChild(webcam.canvas);
     $('status').textContent = '인식 중 ●';
     running = true;
+    if(!target || target.url !== url){
+      target = { id:null, name:'(직접 입력 모델)', url, fooled:0, defended:0 };
+      $('targetName').textContent = target.name;
+      $('foolScore').textContent = 0;
+      $('defScore').textContent = 0;
+      updateVerdict();
+    }
     if(myIntent>=0){ $('roundBtn').disabled = false; }
     window.requestAnimationFrame(loop);
   }catch(e){
@@ -489,12 +565,9 @@ async function predict(){
   }
 }
 
-let scores = {me:0, you:0};
-
 let myIntent = -1;
 let roundActive = false;
 let roundVotes = [0,0,0];
-let roundCount = 0;
 const NAMES = ['가위','바위','보'];
 
 function pickIntent(i){
@@ -506,6 +579,7 @@ function pickIntent(i){
 }
 
 async function startRound(){
+  if(!target){ alert('먼저 위 "AI 등록소"에서 공격할 친구를 골라주세요!'); return; }
   if(myIntent<0){ alert('먼저 내가 낼 손모양을 골라주세요!'); return; }
   if(!model || !webcam){ alert('먼저 위에서 웹캠을 시작해 주세요!'); return; }
   if(roundActive) return;
@@ -525,11 +599,11 @@ async function startRound(){
   }
   cd.textContent = '';
   roundActive = false;
-  judgeRound();
+  await judgeRound();
   $('roundBtn').disabled = false;
 }
 
-function judgeRound(){
+async function judgeRound(){
   let win = {i:-1, v:-1};
   for(let i=0;i<3;i++){ if(roundVotes[i]>win.v){ win={i, v:roundVotes[i]}; } }
 
@@ -541,53 +615,153 @@ function judgeRound(){
     return;
   }
 
-  roundCount++;
   const aiName = NAMES[win.i];
   const myName = NAMES[myIntent];
+  const fooled = (win.i !== myIntent);
 
-  if(win.i !== myIntent){
-    bump('me', 1);
+  if(fooled){
     r.className='roundresult ok';
-    r.textContent = `🎉 속이기 성공! (${myName} 냈는데 AI는 ${aiName}로 봄) +1`;
+    r.textContent = `🎉 속이기 성공! (${myName} 냈는데 AI는 ${aiName}로 봄) → 이 모델 약점 +1`;
   }else{
     r.className='roundresult no';
-    r.textContent = `🛡️ 못 속였어요. AI가 ${aiName}를 정확히 맞혔어요!`;
+    r.textContent = `🛡️ 못 속였어요! AI가 ${aiName}를 정확히 막아냄 → 이 모델 상점 +1`;
   }
-  r.textContent += `  ·  ${roundCount}/5 라운드`;
 
-  if(roundCount>=5){
-    setTimeout(()=>{
-      alert('내 5라운드 끝! 내 모델이 속은 횟수: ' + scores.me + ' / 5\n이제 짝과 점수를 비교해 보세요.');
-    }, 200);
+  await applyScore(fooled);
+}
+
+async function applyScore(fooled){
+  if(fooled){ target.fooled++; } else { target.defended++; }
+  $('foolScore').textContent = target.fooled;
+  $('defScore').textContent = target.defended;
+  updateVerdict();
+
+  if(dbReady && target.id != null){
+    try{
+      const col = fooled ? 'fooled' : 'defended';
+      const val = fooled ? target.fooled : target.defended;
+      await sb.from('models').update({ [col]: val }).eq('id', target.id);
+    }catch(e){ /* 저장 실패해도 화면 점수는 유지 */ }
+  }
+}
+
+function updateVerdict(){
+  const v = $('verdict');
+  if(!target){ v.className='verdict tie'; v.textContent='상대를 고르고 라운드를 시작하세요'; return; }
+  const f = target.fooled, d = target.defended;
+  if(f===0 && d===0){
+    v.className='verdict tie'; v.textContent=`${target.name}의 모델 — 아직 대결 전`; return;
+  }
+  if(d > f){
+    v.className='verdict win';
+    v.textContent=`🛡️ ${target.name}의 모델은 튼튼해요! (막음 ${d} > 속음 ${f})`;
+  }else if(f > d){
+    v.className='verdict lose';
+    v.textContent=`🗡️ ${target.name}의 모델은 잘 속아요 (속음 ${f} > 막음 ${d})`;
+  }else{
+    v.className='verdict tie';
+    v.textContent=`🤝 ${target.name}의 모델 — 막음 ${d} : 속음 ${f}`;
   }
 }
 
 function sleep(ms){ return new Promise(res=>setTimeout(res, ms)); }
 
-function bump(who, d){
-  scores[who] = Math.max(0, Math.min(5, scores[who]+d));
-  $(who+'Score').textContent = scores[who];
-  updateVerdict();
+/* ════════ 선생님 화면 ════════ */
+function isTeacher(){
+  return location.search.indexOf('teacher')>=0 || location.hash.indexOf('teacher')>=0;
 }
-function updateVerdict(){
-  const v = $('verdict');
-  const me = scores.me, you = scores.you;
-  if(me===0 && you===0){
-    v.className='verdict tie'; v.textContent='아직 점수를 입력해 주세요'; return;
-  }
-  if(me < you){
-    v.className='verdict win';
-    v.textContent='🏆 내 모델 승리! (덜 속았어요)';
-  }else if(me > you){
-    v.className='verdict lose';
-    v.textContent='😅 짝 모델 승리! 데이터를 더 모아 재도전해요';
-  }else{
-    v.className='verdict tie';
-    v.textContent='🤝 무승부! 누가 더 다양한 데이터를 모을까?';
+
+async function loadTeacher(){
+  const box = $('teacherTable');
+  if(!dbReady){ box.innerHTML='<div class="empty">Supabase 연결 정보를 먼저 코드 상단에 넣어주세요.</div>'; return; }
+  box.innerHTML = '<div class="empty">불러오는 중…</div>';
+  try{
+    const { data, error } = await sb.from('models')
+      .select('id,name,fooled,defended,created_at').order('created_at',{ascending:true});
+    if(error) throw error;
+    if(!data || data.length===0){ box.innerHTML='<div class="empty">아직 등록된 모델이 없어요.</div>'; return; }
+
+    let html = '<table class="ttable"><thead><tr>' +
+      '<th>이름</th><th>🗡️ 속은</th><th>🛡️ 막은</th><th>판정</th><th>관리</th>' +
+      '</tr></thead><tbody>';
+    data.forEach(row=>{
+      const f=row.fooled||0, d=row.defended||0;
+      let tag='';
+      if(d>f) tag='<span class="strong-badge">튼튼</span>';
+      html += `<tr>
+        <td class="nm">👤 ${escapeHtml(row.name)}${tag}</td>
+        <td class="foolnum">${f}</td>
+        <td class="defnum">${d}</td>
+        <td>${d>f?'🛡️ 강함':(f>d?'🗡️ 약함':'—')}</td>
+        <td><button class="del" onclick="delOne(${row.id}, '${escapeHtml(row.name)}')">삭제</button></td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    box.innerHTML = html;
+  }catch(e){
+    box.innerHTML = '<div class="empty">불러오기 실패: ' + e.message + '</div>';
   }
 }
 
-window.addEventListener('load', initDB);
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function askPin(){
+  const pin = prompt('삭제하려면 PIN을 입력하세요:');
+  if(pin===null) return false;
+  if(pin !== TEACHER_PIN){ alert('PIN이 틀렸어요.'); return false; }
+  return true;
+}
+
+async function delOne(id, name){
+  if(!dbReady) return;
+  if(!askPin()) return;
+  try{
+    const { error } = await sb.from('models').delete().eq('id', id);
+    if(error) throw error;
+    $('teacherMsg').className='regmsg ok';
+    $('teacherMsg').textContent = `'${name}' 삭제 완료.`;
+    loadTeacher();
+  }catch(e){
+    $('teacherMsg').className='regmsg err';
+    $('teacherMsg').textContent = '삭제 실패: ' + e.message;
+  }
+}
+
+async function clearAll(){
+  if(!dbReady) return;
+  if(!confirm('정말 모든 모델 데이터를 삭제할까요?')) return;
+  if(!askPin()) return;
+  try{
+    const { error } = await sb.from('models').delete().neq('id', -1);
+    if(error) throw error;
+    $('teacherMsg').className='regmsg ok';
+    $('teacherMsg').textContent = '전체 삭제 완료.';
+    loadTeacher();
+  }catch(e){
+    $('teacherMsg').className='regmsg err';
+    $('teacherMsg').textContent = '삭제 실패: ' + e.message;
+  }
+}
+
+function boot(){
+  if(isTeacher()){
+    document.querySelectorAll('.wrap').forEach(w=>{
+      w.style.display = (w.id==='teacherView') ? 'block' : 'none';
+    });
+    initDBcore();
+    loadTeacher();
+  }else{
+    initDB();
+  }
+}
+
+function initDBcore(){
+  const placeholder = SUPABASE_URL.indexOf('여기에') === 0;
+  if(placeholder || !window.supabase) return;
+  try{ sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON); dbReady = true; }catch(e){}
+}
+
+window.addEventListener('load', boot);
 </script>
 </body>
 </html>
