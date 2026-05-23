@@ -240,6 +240,13 @@
   details p{color:var(--muted);font-size:13px;margin-top:8px;line-height:1.7}
 
   footer{text-align:center;color:#6f72ad;font-size:12px;margin-top:30px}
+  .teacher-enter{
+    margin-top:12px;font-family:'Gowun Dodum',sans-serif;font-size:12px;
+    background:transparent;color:#6f72ad;border:1px solid var(--line);
+    border-radius:8px;padding:6px 12px;box-shadow:none;cursor:pointer;
+  }
+  .teacher-enter:hover{color:var(--ink);border-color:var(--accent)}
+  .teacher-enter:active{transform:none;box-shadow:none}
 </style>
 </head>
 <body>
@@ -393,7 +400,10 @@
     </div>
   </div>
 
-  <footer>적게 속을수록… 아니, 잘 막을수록 똑똑한 AI · 좋은 AI엔 다양하고 충분한 데이터가 필요해요 🧠</footer>
+  <footer>
+    적게 속을수록… 아니, 잘 막을수록 똑똑한 AI · 좋은 AI엔 다양하고 충분한 데이터가 필요해요 🧠
+    <br><button class="teacher-enter" onclick="enterTeacher()">👩‍🏫 선생님용</button>
+  </footer>
 </div>
 
 <!-- ════════ 선생님 전용 화면 (?teacher 일 때만 표시) ════════ -->
@@ -435,7 +445,7 @@
     <div id="teacherMsg" class="regmsg"></div>
   </div>
 
-  <footer>학생용 화면은 주소에서 <b>?teacher</b>를 빼면 나와요</footer>
+  <footer>학생용 화면은 주소에서 <b>?teacher</b>를 빼거나, 페이지를 새로고침하면 나와요</footer>
 </div>
 
 <script>
@@ -445,7 +455,7 @@
    ════════════════════════════════════════════════════════════ */
 const SUPABASE_URL  = "https://cpnmlvfqstjxwikskhit.supabase.co";   // 예: https://abcd1234.supabase.co
 const SUPABASE_ANON = "sb_publishable_Zo0KKdFY8R_XW64W_pzDkw_PWuTf8O6"; // 예: eyJhbGciOi... (긴 키)
-const TEACHER_PIN   = "teacher";  // 선생님 삭제용 PIN (원하는 값으로 바꾸세요)
+const TEACHER_PIN   = "1234";  // 선생님 삭제용 PIN (원하는 값으로 바꾸세요)
 /* ════════════════════════════════════════════════════════════ */
 
 const CLASS_EMOJI = ['✌️','✊','✋'];
@@ -711,6 +721,23 @@ function isTeacher(){
   return location.search.indexOf('teacher')>=0 || location.hash.indexOf('teacher')>=0;
 }
 
+function showTeacherView(){
+  document.querySelectorAll('.wrap').forEach(w=>{
+    w.style.display = (w.id==='teacherView') ? 'block' : 'none';
+  });
+  if(!dbReady) initDBcore();
+  loadTeacher();
+  checkArena();
+  window.scrollTo(0,0);
+}
+
+function enterTeacher(){
+  const pin = prompt('선생님 암호를 입력하세요:');
+  if(pin===null) return;
+  if(pin !== TEACHER_PIN){ alert('암호가 틀렸어요.'); return; }
+  showTeacherView();
+}
+
 async function loadTeacher(){
   const box = $('teacherTable');
   if(!dbReady){ box.innerHTML='<div class="empty">Supabase 연결 정보를 먼저 코드 상단에 넣어주세요.</div>'; return; }
@@ -832,12 +859,7 @@ async function endArena(){
 
 function boot(){
   if(isTeacher()){
-    document.querySelectorAll('.wrap').forEach(w=>{
-      w.style.display = (w.id==='teacherView') ? 'block' : 'none';
-    });
-    initDBcore();
-    loadTeacher();
-    checkArena();
+    showTeacherView();
   }else{
     initDB();
   }
