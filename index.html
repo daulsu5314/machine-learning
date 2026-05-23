@@ -171,6 +171,20 @@
   .notice .cm .k{font-family:'Jua',sans-serif;color:var(--muted);font-size:13px;display:block;margin-bottom:3px}
   .notice .cm .v{font-size:18px}
   .notice .warn{color:#ffb3cd;font-size:13px;margin-top:10px;line-height:1.6}
+  .tm-link{
+    display:inline-block;text-decoration:none;
+    font-family:'Jua',sans-serif;font-size:16px;
+    background:var(--accent);color:#fff;
+    border-radius:12px;padding:13px 24px;
+    box-shadow:0 6px 0 #5e4fd1;transition:filter .12s, transform .12s;
+  }
+  .tm-link:hover{filter:brightness(1.08)}
+  .tm-link:active{transform:translateY(4px);box-shadow:0 2px 0 #5e4fd1}
+  .closed-banner{
+    background:rgba(255,209,102,.14);border:1px solid rgba(255,209,102,.5);
+    border-radius:14px;padding:16px 20px;margin-bottom:22px;text-align:center;
+    font-family:'Jua',sans-serif;font-size:16px;color:#ffd166;
+  }
 
   .regmsg{font-size:14px;margin-top:10px;min-height:18px}
   .regmsg.ok{color:var(--win)} .regmsg.err{color:var(--lose)}
@@ -244,6 +258,10 @@
     <div class="pill"><b>4</b> 승자 판정</div>
   </div>
 
+  <div class="closed-banner" id="closedBanner" style="display:none">
+    ⏸ 아레나가 종료되었습니다. 더 이상 등록·대결을 할 수 없어요. (선생님이 닫았어요)
+  </div>
+
   <!-- 클래스 순서 주의 -->
   <div class="notice">
     <div class="nt">⚠️ Teachable Machine 클래스 순서를 꼭 이렇게!</div>
@@ -255,6 +273,11 @@
     <div class="warn">
       순서가 다르면 막대 색·이모지 매칭과 자동 채점이 어긋나요.
       TM에서 클래스 이름을 위 순서대로 <b>가위 → 바위 → 보</b>로 만든 뒤 학습시켜 주세요.
+    </div>
+    <div style="text-align:center;margin-top:14px">
+      <a href="https://teachablemachine.withgoogle.com/train/image" target="_blank" rel="noopener" class="tm-link">
+        🚀 Teachable Machine에서 모델 만들기 ↗
+      </a>
     </div>
   </div>
 
@@ -324,7 +347,7 @@
 
     <details>
       <summary>내 모델 링크는 어디서 받나요?</summary>
-      <p>① teachablemachine.withgoogle.com 접속 → ② Image Project로 가위·바위·보 학습 →
+      <p>① <a href="https://teachablemachine.withgoogle.com/train/image" target="_blank" rel="noopener" style="color:var(--accent)">teachablemachine.withgoogle.com</a> 접속 → ② Image Project로 가위·바위·보 학습 →
       ③ 우측 상단 <b>Export Model</b> 클릭 → ④ Tensorflow.js 탭에서 <b>Upload my model</b> →
       ⑤ 생기는 주소(.../models/XXXX/)를 복사해서 위에 붙여넣기!</p>
     </details>
@@ -390,6 +413,19 @@
   </div>
 
   <div class="card">
+    <h2>🚦 아레나 운영</h2>
+    <p class="hint">
+      현재 상태: <b id="arenaState">확인 중…</b><br>
+      종료하면 학생들은 더 이상 모델을 <b>등록하거나 대결</b>할 수 없어요. (모인 현황 데이터는 그대로 보존됩니다)
+      <br>⚠️ <b>한 번 종료하면 되돌릴 수 없어요.</b>
+    </p>
+    <div style="text-align:center">
+      <button id="endBtn" onclick="endArena()" style="box-shadow:0 6px 0 #5a1f2e;background:#3a1420;color:#ffb3cd">🔴 아레나 종료하기</button>
+    </div>
+    <div id="arenaMsg" class="regmsg" style="text-align:center"></div>
+  </div>
+
+  <div class="card">
     <h2>🗑️ 데이터 관리</h2>
     <p class="hint">학생 모델(URL)을 삭제할 수 있어요. 삭제하려면 PIN을 입력하세요.</p>
     <div class="inputrow">
@@ -415,6 +451,7 @@ const TEACHER_PIN   = "1234";  // 선생님 삭제용 PIN (원하는 값으로 �
 const CLASS_EMOJI = ['✌️','✊','✋'];
 let model, webcam, maxPred = 3, running = false;
 let sb = null, dbReady = false;
+let arenaClosed = false;
 
 function $(id){return document.getElementById(id)}
 
@@ -431,6 +468,7 @@ function initDB(){
     sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
     dbReady = true;
     loadList();
+    checkArena();
   }catch(e){
     $('dbWarn').style.display = 'block';
     $('dbWarn').textContent = 'Supabase 연결에 실패했어요: ' + e.message;
@@ -438,6 +476,7 @@ function initDB(){
 }
 
 async function registerModel(){
+  if(arenaClosed){ alert('아레나가 종료되어 더 이상 등록할 수 없어요.'); return; }
   if(!dbReady){ alert('먼저 코드 상단에 Supabase 정보를 넣어주세요.'); return; }
   const name = $('regName').value.trim();
   let url = $('regUrl').value.trim();
@@ -579,6 +618,7 @@ function pickIntent(i){
 }
 
 async function startRound(){
+  if(arenaClosed){ alert('아레나가 종료되어 더 이상 대결할 수 없어요.'); return; }
   if(!target){ alert('먼저 위 "AI 등록소"에서 공격할 친구를 골라주세요!'); return; }
   if(myIntent<0){ alert('먼저 내가 낼 손모양을 골라주세요!'); return; }
   if(!model || !webcam){ alert('먼저 위에서 웹캠을 시작해 주세요!'); return; }
@@ -743,6 +783,53 @@ async function clearAll(){
   }
 }
 
+/* ════════ 아레나 운영(종료) ════════ */
+async function checkArena(){
+  if(!dbReady) return;
+  try{
+    const { data, error } = await sb.from('arena_settings').select('closed').eq('id',1).single();
+    if(error) throw error;
+    arenaClosed = !!(data && data.closed);
+  }catch(e){ arenaClosed = false; }
+  applyArenaState();
+}
+
+function applyArenaState(){
+  // 학생 화면 잠금
+  const banner = $('closedBanner');
+  if(banner) banner.style.display = arenaClosed ? 'block' : 'none';
+  if(arenaClosed){
+    ['regBtn','startBtn','roundBtn'].forEach(id=>{ if($(id)) $(id).disabled = true; });
+  }
+  // 선생님 화면 상태 표시
+  const st = $('arenaState');
+  if(st){
+    st.textContent = arenaClosed ? '🔴 종료됨 (학생 등록·대결 잠김)' : '🟢 진행 중';
+    if(arenaClosed && $('endBtn')){
+      $('endBtn').disabled = true;
+      $('endBtn').textContent = '이미 종료됨';
+    }
+  }
+}
+
+async function endArena(){
+  if(!dbReady){ alert('Supabase 연결 정보를 먼저 코드 상단에 넣어주세요.'); return; }
+  if(arenaClosed){ return; }
+  if(!confirm('정말 아레나를 종료할까요?\n학생들은 더 이상 등록·대결을 할 수 없게 되며, 되돌릴 수 없어요.')) return;
+  if(!askPin()) return;
+  try{
+    const { error } = await sb.from('arena_settings').update({ closed: true }).eq('id',1);
+    if(error) throw error;
+    arenaClosed = true;
+    $('arenaMsg').className='regmsg ok';
+    $('arenaMsg').textContent = '아레나를 종료했어요. 학생 화면이 잠겼습니다.';
+    applyArenaState();
+  }catch(e){
+    $('arenaMsg').className='regmsg err';
+    $('arenaMsg').textContent = '종료 실패: ' + e.message;
+  }
+}
+
 function boot(){
   if(isTeacher()){
     document.querySelectorAll('.wrap').forEach(w=>{
@@ -750,6 +837,7 @@ function boot(){
     });
     initDBcore();
     loadTeacher();
+    checkArena();
   }else{
     initDB();
   }
