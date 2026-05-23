@@ -185,6 +185,22 @@
     border-radius:14px;padding:16px 20px;margin-bottom:22px;text-align:center;
     font-family:'Jua',sans-serif;font-size:16px;color:#ffd166;
   }
+  .rankcard{
+    background:var(--card);border:1px solid var(--line);border-radius:22px;
+    padding:24px;margin-bottom:22px;box-shadow:0 18px 40px rgba(0,0,0,.35);
+  }
+  .rankcard h3{font-family:'Jua',sans-serif;font-weight:400;font-size:22px;
+    text-align:center;margin-bottom:18px}
+  .rankrow{display:flex;align-items:center;gap:14px;padding:12px 16px;
+    border-radius:14px;margin-bottom:8px;background:var(--bg2);border:1px solid var(--line)}
+  .rankrow .pos{font-family:'Jua',sans-serif;font-size:22px;min-width:40px;text-align:center}
+  .rankrow .rname{flex:1;font-size:17px}
+  .rankrow .rdef{font-family:'Jua',sans-serif;font-size:18px;color:var(--paper)}
+  .rankrow .rsub{font-size:12px;color:var(--muted);margin-left:4px}
+  .rankrow.gold{background:rgba(255,209,102,.16);border-color:rgba(255,209,102,.55)}
+  .rankrow.silver{background:rgba(180,190,210,.14);border-color:rgba(180,190,210,.4)}
+  .rankrow.bronze{background:rgba(216,90,48,.14);border-color:rgba(216,90,48,.4)}
+  .rankcard .rankempty{text-align:center;color:var(--muted);padding:14px}
 
   .regmsg{font-size:14px;margin-top:10px;min-height:18px}
   .regmsg.ok{color:var(--win)} .regmsg.err{color:var(--lose)}
@@ -268,6 +284,7 @@
   <div class="closed-banner" id="closedBanner" style="display:none">
     ⏸ 아레나가 종료되었습니다. 더 이상 등록·대결을 할 수 없어요. (선생님이 닫았어요)
   </div>
+  <div id="studentRank" class="rankcard" style="display:none"></div>
 
   <!-- 클래스 순서 주의 -->
   <div class="notice">
@@ -434,6 +451,8 @@
     </div>
     <div id="arenaMsg" class="regmsg" style="text-align:center"></div>
   </div>
+
+  <div id="teacherRank" class="rankcard" style="display:none"></div>
 
   <div class="card">
     <h2>🗑️ 데이터 관리</h2>
@@ -842,6 +861,65 @@ function applyArenaState(){
       eb.style.background = '#3a1420'; eb.style.color = '#ffb3cd'; eb.style.boxShadow = '0 6px 0 #5a1f2e';
     }
   }
+  // 종료 상태면 순위+교훈 질문 표시, 아니면 숨김
+  if(arenaClosed){
+    renderRanking();
+  }else{
+    if($('studentRank')) $('studentRank').style.display='none';
+    if($('teacherRank')) $('teacherRank').style.display='none';
+  }
+}
+
+const MIN_TRIES = 3;  // 순위에 들려면 최소 시도 횟수
+
+async function renderRanking(){
+  if(!dbReady) return;
+  let data;
+  try{
+    const res = await sb.from('models').select('name,fooled,defended');
+    if(res.error) throw res.error;
+    data = res.data || [];
+  }catch(e){ return; }
+
+  // 방어율 계산 + 최소 시도 횟수 필터
+  const ranked = data.map(r=>{
+    const f = r.fooled||0, d = r.defended||0, tot = f+d;
+    return { name:r.name, f, d, tot, rate: tot? Math.round(d/tot*100) : 0 };
+  }).filter(r=> r.tot >= MIN_TRIES)
+    .sort((a,b)=> b.rate - a.rate || b.tot - a.tot);
+
+  const medal = ['🥇','🥈','🥉'];
+  const cls = ['gold','silver','bronze'];
+  let rows = '';
+  if(ranked.length===0){
+    rows = `<div class="rankempty">아직 ${MIN_TRIES}번 이상 대결한 모델이 없어요.</div>`;
+  }else{
+    ranked.forEach((r,i)=>{
+      rows += `<div class="rankrow ${cls[i]||''}">
+        <span class="pos">${medal[i]||(i+1)}</span>
+        <span class="rname">👤 ${escapeHtml(r.name)}</span>
+        <span class="rdef">${r.rate}%<span class="rsub">방어율 (막음 ${r.d}/${r.tot})</span></span>
+      </div>`;
+    });
+  }
+
+  const html = `
+    <h3>🏆 최종 순위 — 가장 튼튼한 AI는?</h3>
+    ${rows}
+    <div style="margin-top:18px;padding:16px;border-radius:14px;background:var(--bg2);border:1px dashed var(--line)">
+      <div style="font-family:'Jua',sans-serif;font-size:17px;margin-bottom:10px">💭 다 함께 생각해 봐요</div>
+      <div style="font-size:15px;line-height:1.9;color:var(--ink)">
+        ① 내가 시험한 모델은 몇 번 중 몇 번 막았나요? 방어율은 몇 %였나요?<br>
+        ② 1등 모델은 왜 잘 막았을까요? 어떤 점이 달랐을까요?<br>
+        ③ 내 모델의 정확도를 높이려면 무엇을 해야 할까요?<br>
+        ④ 좋은 AI를 만들려면 가장 중요한 건 무엇일까요?
+      </div>
+    </div>`;
+
+  ['studentRank','teacherRank'].forEach(id=>{
+    const box = $(id);
+    if(box){ box.innerHTML = html; box.style.display='block'; }
+  });
 }
 
 async function toggleArena(){
