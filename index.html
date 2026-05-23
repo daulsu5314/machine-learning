@@ -427,10 +427,10 @@
     <p class="hint">
       현재 상태: <b id="arenaState">확인 중…</b><br>
       종료하면 학생들은 더 이상 모델을 <b>등록하거나 대결</b>할 수 없어요. (모인 현황 데이터는 그대로 보존됩니다)
-      <br>⚠️ <b>한 번 종료하면 되돌릴 수 없어요.</b>
+      <br>다시 열면 학생들이 이어서 대결할 수 있어요.
     </p>
     <div style="text-align:center">
-      <button id="endBtn" onclick="endArena()" style="box-shadow:0 6px 0 #5a1f2e;background:#3a1420;color:#ffb3cd">🔴 아레나 종료하기</button>
+      <button id="endBtn" onclick="toggleArena()">상태 확인 중…</button>
     </div>
     <div id="arenaMsg" class="regmsg" style="text-align:center"></div>
   </div>
@@ -822,38 +822,48 @@ async function checkArena(){
 }
 
 function applyArenaState(){
-  // 학생 화면 잠금
+  // 학생 화면 잠금/해제
   const banner = $('closedBanner');
   if(banner) banner.style.display = arenaClosed ? 'block' : 'none';
-  if(arenaClosed){
-    ['regBtn','startBtn','roundBtn'].forEach(id=>{ if($(id)) $(id).disabled = true; });
-  }
-  // 선생님 화면 상태 표시
+  ['regBtn','startBtn','roundBtn'].forEach(id=>{
+    if($(id)) $(id).disabled = arenaClosed;
+  });
+  // 선생님 화면 상태 표시 + 버튼 토글
   const st = $('arenaState');
-  if(st){
-    st.textContent = arenaClosed ? '🔴 종료됨 (학생 등록·대결 잠김)' : '🟢 진행 중';
-    if(arenaClosed && $('endBtn')){
-      $('endBtn').disabled = true;
-      $('endBtn').textContent = '이미 종료됨';
+  if(st){ st.textContent = arenaClosed ? '🔴 종료됨 (학생 등록·대결 잠김)' : '🟢 진행 중'; }
+  const eb = $('endBtn');
+  if(eb){
+    eb.disabled = false;
+    if(arenaClosed){
+      eb.textContent = '🟢 아레나 다시 열기';
+      eb.style.background = '#1d3a2e'; eb.style.color = '#5ad1c4'; eb.style.boxShadow = '0 6px 0 #11261d';
+    }else{
+      eb.textContent = '🔴 아레나 종료하기';
+      eb.style.background = '#3a1420'; eb.style.color = '#ffb3cd'; eb.style.boxShadow = '0 6px 0 #5a1f2e';
     }
   }
 }
 
-async function endArena(){
+async function toggleArena(){
   if(!dbReady){ alert('Supabase 연결 정보를 먼저 코드 상단에 넣어주세요.'); return; }
-  if(arenaClosed){ return; }
-  if(!confirm('정말 아레나를 종료할까요?\n학생들은 더 이상 등록·대결을 할 수 없게 되며, 되돌릴 수 없어요.')) return;
+  const goingToClose = !arenaClosed;
+  const ask = goingToClose
+    ? '아레나를 종료할까요?\n학생들의 등록·대결이 잠깁니다. (현황 데이터는 보존)'
+    : '아레나를 다시 열까요?\n학생들이 이어서 등록·대결할 수 있게 됩니다.';
+  if(!confirm(ask)) return;
   if(!askPin()) return;
   try{
-    const { error } = await sb.from('arena_settings').update({ closed: true }).eq('id',1);
+    const { error } = await sb.from('arena_settings').update({ closed: goingToClose }).eq('id',1);
     if(error) throw error;
-    arenaClosed = true;
+    arenaClosed = goingToClose;
     $('arenaMsg').className='regmsg ok';
-    $('arenaMsg').textContent = '아레나를 종료했어요. 학생 화면이 잠겼습니다.';
+    $('arenaMsg').textContent = goingToClose
+      ? '아레나를 종료했어요. 학생 화면이 잠겼습니다.'
+      : '아레나를 다시 열었어요. 학생들이 이어서 대결할 수 있어요.';
     applyArenaState();
   }catch(e){
     $('arenaMsg').className='regmsg err';
-    $('arenaMsg').textContent = '종료 실패: ' + e.message;
+    $('arenaMsg').textContent = '변경 실패: ' + e.message;
   }
 }
 
