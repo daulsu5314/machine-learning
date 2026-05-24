@@ -281,6 +281,9 @@
     <div class="pill"><b>4</b> 승자 판정</div>
   </div>
 
+  <div class="closed-banner" id="waitingBanner" style="display:none">
+    ⏳ 아직 아레나가 시작되지 않았어요. 선생님이 열어줄 때까지 잠시 기다려 주세요.
+  </div>
   <div class="closed-banner" id="closedBanner" style="display:none">
     ⏸ 아레나가 종료되었습니다. 더 이상 등록·대결을 할 수 없어요. (선생님이 닫았어요)
   </div>
@@ -443,11 +446,12 @@
     <h2>🚦 아레나 운영</h2>
     <p class="hint">
       현재 상태: <b id="arenaState">확인 중…</b><br>
-      종료하면 학생들은 더 이상 모델을 <b>등록하거나 대결</b>할 수 없어요. (모인 현황 데이터는 그대로 보존됩니다)
-      <br>다시 열면 학생들이 이어서 대결할 수 있어요.
+      <b>열기</b>를 눌러야 학생들이 등록·대결을 시작할 수 있어요.
+      수업이 끝나면 <b>종료</b>를 눌러 잠그고 마무리 질문을 띄우세요. (현황 데이터는 보존)
     </p>
-    <div style="text-align:center">
-      <button id="endBtn" onclick="toggleArena()">상태 확인 중…</button>
+    <div style="text-align:center;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      <button id="openBtn" onclick="openArena()">🟢 아레나 열기</button>
+      <button id="endBtn" onclick="endArena()">🔴 아레나 종료하기</button>
     </div>
     <div id="arenaMsg" class="regmsg" style="text-align:center"></div>
   </div>
@@ -480,7 +484,8 @@ const TEACHER_PIN   = "1234";  // 선생님 삭제용 PIN (원하는 값으로 �
 const CLASS_EMOJI = ['✌️','✊','✋'];
 let model, webcam, maxPred = 3, running = false;
 let sb = null, dbReady = false;
-let arenaClosed = false;
+let arenaPhase = 'waiting';  // 'waiting' | 'open' | 'ended'
+function isOpen(){ return arenaPhase === 'open'; }
 
 function $(id){return document.getElementById(id)}
 
@@ -505,7 +510,7 @@ function initDB(){
 }
 
 async function registerModel(){
-  if(arenaClosed){ alert('아레나가 종료되어 더 이상 등록할 수 없어요.'); return; }
+  if(!isOpen()){ alert(arenaPhase==='waiting' ? '아직 아레나가 열리지 않았어요. 선생님을 기다려 주세요.' : '아레나가 종료되어 더 이상 등록할 수 없어요.'); return; }
   if(!dbReady){ alert('먼저 코드 상단에 Supabase 정보를 넣어주세요.'); return; }
   const name = $('regName').value.trim();
   let url = $('regUrl').value.trim();
@@ -579,7 +584,7 @@ function chooseFriend(el, row){
 
 
 async function startApp(){
-  if(arenaClosed){ alert('아레나가 종료되어 대결할 수 없어요.'); return; }
+  if(!isOpen()){ alert(arenaPhase==='waiting' ? '아직 아레나가 열리지 않았어요. 선생님을 기다려 주세요.' : '아레나가 종료되어 대결할 수 없어요.'); return; }
   let url = $('modelUrl').value.trim();
   if(!url){ alert('먼저 모델 링크를 붙여넣거나 친구를 골라주세요!'); return; }
   if(!url.endsWith('/')) url += '/';
@@ -667,7 +672,7 @@ function pickIntent(i){
 }
 
 async function startRound(){
-  if(arenaClosed){ alert('아레나가 종료되어 더 이상 대결할 수 없어요.'); return; }
+  if(!isOpen()){ alert(arenaPhase==='waiting' ? '아직 아레나가 열리지 않았어요. 선생님을 기다려 주세요.' : '아레나가 종료되어 더 이상 대결할 수 없어요.'); return; }
   if(!target){ alert('먼저 위 "AI 등록소"에서 공격할 친구를 골라주세요!'); return; }
   if(myIntent<0){ alert('먼저 내가 낼 손모양을 골라주세요!'); return; }
   if(!model || !webcam){ alert('먼저 위에서 웹캠을 시작해 주세요!'); return; }
@@ -766,9 +771,16 @@ function showTeacherView(){
   });
   if(!dbReady) initDBcore();
   loadTeacher();
-  checkArena();
   window.scrollTo(0,0);
   startTeacherAutoRefresh();
+  // 상태 확인 후 대기 중이면 바로 "열까요?" 제안
+  checkArena().then(()=>{
+    if(arenaPhase === 'waiting'){
+      if(confirm('지금 아레나가 대기 중이에요.\n수업을 시작하려면 아레나를 열까요?')){
+        setPhase('open', '아레나를 열었어요! 학생들이 이제 시작할 수 있어요.');
+      }
+    }
+  });
 }
 
 let teacherTimer = null;
@@ -860,46 +872,59 @@ async function clearAll(){
   }
 }
 
-/* ════════ 아레나 운영(종료) ════════ */
+/* ════════ 아레나 운영(대기/열림/종료) ════════ */
 async function checkArena(){
   if(!dbReady) return;
   try{
-    const { data, error } = await sb.from('arena_settings').select('closed').eq('id',1).single();
+    const { data, error } = await sb.from('arena_settings').select('phase').eq('id',1).single();
     if(error) throw error;
-    arenaClosed = !!(data && data.closed);
-  }catch(e){ arenaClosed = false; }
+    arenaPhase = (data && data.phase) ? data.phase : 'waiting';
+  }catch(e){ arenaPhase = 'waiting'; }
   applyArenaState();
 }
 
 function applyArenaState(){
-  // 학생 화면 잠금/해제
-  const banner = $('closedBanner');
-  if(banner) banner.style.display = arenaClosed ? 'block' : 'none';
+  const open = isOpen();
+  const ended = (arenaPhase === 'ended');
+  const waiting = (arenaPhase === 'waiting');
+
+  // 학생 화면 배너
+  if($('waitingBanner')) $('waitingBanner').style.display = waiting ? 'block' : 'none';
+  if($('closedBanner'))  $('closedBanner').style.display  = ended ? 'block' : 'none';
+
+  // 등록·대결 버튼은 열림일 때만 활성
   ['regBtn','startBtn','roundBtn'].forEach(id=>{
-    if($(id)) $(id).disabled = arenaClosed;
+    if($(id)) $(id).disabled = !open;
   });
-  if(arenaClosed){ running = false; }  // 종료되면 웹캠 인식 루프 정지
-  // 선생님 화면 상태 표시 + 버튼 토글
-  const st = $('arenaState');
-  if(st){ st.textContent = arenaClosed ? '🔴 종료됨 (학생 등록·대결 잠김)' : '🟢 진행 중'; }
-  const eb = $('endBtn');
-  if(eb){
-    eb.disabled = false;
-    if(arenaClosed){
-      eb.textContent = '🟢 아레나 다시 열기';
-      eb.style.background = '#1d3a2e'; eb.style.color = '#5ad1c4'; eb.style.boxShadow = '0 6px 0 #11261d';
-    }else{
-      eb.textContent = '🔴 아레나 종료하기';
-      eb.style.background = '#3a1420'; eb.style.color = '#ffb3cd'; eb.style.boxShadow = '0 6px 0 #5a1f2e';
-    }
+  if(!open){ running = false; }
+
+  // 학생 화면 구성: 열림이면 전부 보이기, 아니면 배너(+질문)만
+  const studentWrap = document.querySelector('.wrap:not(#teacherView)');
+  if(studentWrap){
+    Array.from(studentWrap.children).forEach(ch=>{
+      if(ch.id==='waitingBanner' || ch.id==='closedBanner' || ch.id==='studentRank') return;
+      ch.style.display = open ? '' : 'none';
+    });
   }
-  // 종료 상태면 순위+교훈 질문 표시, 아니면 숨김
-  if(arenaClosed){
+
+  // 종료일 때만 순위·질문 표시, 그 외엔 숨김
+  if(ended){
     renderRanking();
   }else{
     if($('studentRank')) $('studentRank').style.display='none';
     if($('teacherRank')) $('teacherRank').style.display='none';
   }
+
+  // 선생님 화면 상태 표시 + 버튼 활성/비활성
+  const st = $('arenaState');
+  if(st){
+    st.textContent = waiting ? '⏳ 대기 중 (아직 안 열림)'
+                   : open    ? '🟢 진행 중 (학생 등록·대결 가능)'
+                             : '🔴 종료됨 (학생 화면 잠김 + 마무리 질문)';
+  }
+  const ob = $('openBtn'), eb = $('endBtn');
+  if(ob){ ob.disabled = open; ob.textContent = (ended ? '🟢 아레나 다시 열기' : '🟢 아레나 열기'); }
+  if(eb){ eb.disabled = !open; }
 }
 
 const MIN_TRIES = 3;  // 순위에 들려면 최소 시도 횟수
@@ -956,27 +981,34 @@ async function renderRanking(){
   tBox.style.display='block';
 }
 
-async function toggleArena(){
-  if(!dbReady){ alert('Supabase 연결 정보를 먼저 코드 상단에 넣어주세요.'); return; }
-  const goingToClose = !arenaClosed;
-  const ask = goingToClose
-    ? '아레나를 종료할까요?\n학생들의 등록·대결이 잠깁니다. (현황 데이터는 보존)'
-    : '아레나를 다시 열까요?\n학생들이 이어서 등록·대결할 수 있게 됩니다.';
-  if(!confirm(ask)) return;
-  if(!askPin()) return;
+async function setPhase(phase, okMsg){
+  if(!dbReady){ alert('Supabase 연결 정보를 먼저 코드 상단에 넣어주세요.'); return false; }
   try{
-    const { error } = await sb.from('arena_settings').update({ closed: goingToClose }).eq('id',1);
+    const { error } = await sb.from('arena_settings').update({ phase }).eq('id',1);
     if(error) throw error;
-    arenaClosed = goingToClose;
+    arenaPhase = phase;
     $('arenaMsg').className='regmsg ok';
-    $('arenaMsg').textContent = goingToClose
-      ? '아레나를 종료했어요. 학생 화면이 잠겼습니다.'
-      : '아레나를 다시 열었어요. 학생들이 이어서 대결할 수 있어요.';
+    $('arenaMsg').textContent = okMsg;
     applyArenaState();
+    return true;
   }catch(e){
     $('arenaMsg').className='regmsg err';
     $('arenaMsg').textContent = '변경 실패: ' + e.message;
+    return false;
   }
+}
+
+async function openArena(){
+  if(isOpen()) return;
+  if(!confirm('아레나를 열까요?\n학생들이 등록·대결을 시작할 수 있게 됩니다.')) return;
+  await setPhase('open', '아레나를 열었어요! 학생들이 이제 시작할 수 있어요.');
+}
+
+async function endArena(){
+  if(arenaPhase==='ended') return;
+  if(!confirm('아레나를 종료할까요?\n학생 화면이 잠기고 마무리 질문이 뜹니다. (현황 데이터는 보존)')) return;
+  if(!askPin()) return;
+  await setPhase('ended', '아레나를 종료했어요. 학생 화면이 잠기고 질문이 떴습니다.');
 }
 
 function boot(){
