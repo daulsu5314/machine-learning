@@ -474,13 +474,15 @@
    (Supabase 대시보드 → Project Settings → Data API / API Keys 에서 복사)
    ════════════════════════════════════════════════════════════ */
 const SUPABASE_URL  = "https://cpnmlvfqstjxwikskhit.supabase.co";   // 예: https://abcd1234.supabase.co
-const SUPABASE_ANON = "sb_publishable_Zo0KKdFY8R_XW64W_pzDkw_PWuTf8O6"; // 예: eyJhbGciOi... (긴 키)
+const SUPABASE_ANON = "sb_publishable_Zo0KKdFY8R_XW64W_pzDkw_PWuTf8O6
+"; // 예: eyJhbGciOi... (긴 키)
 const TEACHER_PIN   = "1234";  // 선생님 삭제용 PIN (원하는 값으로 바꾸세요)
 /* ════════════════════════════════════════════════════════════ */
 
 const CLASS_EMOJI = ['✌️','✊','✋'];
 let model, webcam, maxPred = 3, running = false;
 let sb = null, dbReady = false;
+let myName = (function(){ try{ return localStorage.getItem('rps_my_name') || ''; }catch(_){ return ''; } })();
 let arenaPhase = 'open';  // 'open' | 'ended' (기본은 열림)
 function isOpen(){ return arenaPhase === 'open'; }
 
@@ -520,6 +522,8 @@ async function registerModel(){
   try{
     const { error } = await sb.from('models').insert({ name, url }).select();
     if(error) throw error;
+    myName = name;
+    try{ localStorage.setItem('rps_my_name', name); }catch(_){}
     msg.className='regmsg ok'; msg.textContent='✅ 등록 완료! 친구 목록에서 확인하세요.';
     $('regName').value=''; $('regUrl').value='';
     loadList();
@@ -923,7 +927,6 @@ function applyArenaState(){
 const MIN_TRIES = 3;  // 순위에 들려면 최소 시도 횟수
 
 async function renderRanking(){
-  // 질문 블록은 데이터 로딩과 무관하게 항상 만든다
   const quizHtml = `
     <div style="padding:16px;border-radius:14px;background:var(--bg2);border:1px dashed var(--line)">
       <div style="font-family:'Jua',sans-serif;font-size:17px;margin-bottom:10px">💭 다 함께 생각해 봐요</div>
@@ -934,34 +937,49 @@ async function renderRanking(){
       </div>
     </div>`;
 
-  // 학생 화면: 질문만 (항상 표시)
-  const sBox = $('studentRank');
-  if(sBox){ sBox.innerHTML = quizHtml; sBox.style.display='block'; }
-
-  // 선생님 화면: 순위표 + 질문 (데이터가 있으면 순위까지)
-  const tBox = $('teacherRank');
-  if(!tBox) return;
+  // 데이터로 순위 + 내 모델 결과 계산
   let rankHtml = '<h3>🏆 최종 순위 — 가장 튼튼한 AI는?</h3>';
+  let myHtml = '';
   if(dbReady){
     try{
       const res = await sb.from('models').select('name,fooled,defended');
       if(res.error) throw res.error;
       const data = res.data || [];
+
+      // 내 모델 결과
+      if(myName){
+        const mine = data.find(r=> r.name === myName);
+        if(mine){
+          const f=mine.fooled||0, d=mine.defended||0, tot=f+d;
+          const rate = tot? Math.round(d/tot*100) : 0;
+          myHtml = `<div class="rankcard" style="margin:0 0 18px;border-color:var(--paper)">
+            <h3 style="color:var(--paper)">🎯 내 모델 결과 — ${escapeHtml(myName)}</h3>
+            <div style="text-align:center;font-size:16px;line-height:1.9">
+              전체 <b>${tot}</b>번 도전받아서 <b style="color:var(--paper)">${d}번 막고</b> <b style="color:var(--scissors)">${f}번 뚫렸어요</b><br>
+              <span style="font-family:'Jua',sans-serif;font-size:26px;color:var(--paper)">방어율 ${rate}%</span>
+            </div>
+          </div>`;
+        }else{
+          myHtml = `<div class="rankcard" style="margin:0 0 18px"><div class="rankempty">내 모델(${escapeHtml(myName)}) 기록을 찾지 못했어요. 아래 순위에서 확인해 보세요.</div></div>`;
+        }
+      }
+
+      // 순위
       const ranked = data.map(r=>{
         const f = r.fooled||0, d = r.defended||0, tot = f+d;
         return { name:r.name, f, d, tot, rate: tot? Math.round(d/tot*100) : 0 };
       }).filter(r=> r.tot >= MIN_TRIES)
         .sort((a,b)=> b.rate - a.rate || b.tot - a.tot);
-
       const medal = ['🥇','🥈','🥉'];
       const cls = ['gold','silver','bronze'];
       if(ranked.length===0){
         rankHtml += `<div class="rankempty">아직 ${MIN_TRIES}번 이상 대결한 모델이 없어요.</div>`;
       }else{
         ranked.forEach((r,i)=>{
-          rankHtml += `<div class="rankrow ${cls[i]||''}">
+          const isMe = (r.name === myName) ? ' style="outline:2px solid var(--paper)"' : '';
+          rankHtml += `<div class="rankrow ${cls[i]||''}"${isMe}>
             <span class="pos">${medal[i]||(i+1)}</span>
-            <span class="rname">👤 ${escapeHtml(r.name)}</span>
+            <span class="rname">👤 ${escapeHtml(r.name)}${r.name===myName?' (나)':''}</span>
             <span class="rdef">${r.rate}%<span class="rsub">방어율 (막음 ${r.d}/${r.tot})</span></span>
           </div>`;
         });
@@ -970,8 +988,26 @@ async function renderRanking(){
       rankHtml += '<div class="rankempty">순위를 불러오지 못했어요.</div>';
     }
   }
-  tBox.innerHTML = rankHtml + '<div style="margin-top:18px"></div>' + quizHtml;
-  tBox.style.display='block';
+
+  const teacherBtnHtml = `<div style="text-align:center;margin-top:18px">
+      <button class="teacher-enter" onclick="enterTeacher()">👩‍🏫 선생님용</button>
+    </div>`;
+
+  // 학생 화면: 내 결과 → 순위 → 질문 → 선생님용 버튼
+  const sBox = $('studentRank');
+  if(sBox){
+    sBox.innerHTML = myHtml
+      + '<div class="rankcard" style="margin:0 0 18px">' + rankHtml + '</div>'
+      + quizHtml + teacherBtnHtml;
+    sBox.style.display='block';
+  }
+
+  // 선생님 화면: 순위 + 질문
+  const tBox = $('teacherRank');
+  if(tBox){
+    tBox.innerHTML = rankHtml + '<div style="margin-top:18px"></div>' + quizHtml;
+    tBox.style.display='block';
+  }
 }
 
 async function setPhase(phase, okMsg){
