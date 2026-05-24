@@ -443,12 +443,12 @@
     <h2>🚦 아레나 운영</h2>
     <p class="hint">
       현재 상태: <b id="arenaState">확인 중…</b><br>
-      <b>열기</b>를 눌러야 학생들이 등록·대결을 시작할 수 있어요.
-      수업이 끝나면 <b>종료</b>를 눌러 잠그고 마무리 질문을 띄우세요. (현황 데이터는 보존)
+      <b>결과 보기</b>를 누르면 대결을 멈추고 학생 화면에 순위·질문이 떠요. (현황 데이터는 보존)
+      <br><b>다시 시작하기</b>를 누르면 모든 점수를 0으로 초기화하고 새 라운드를 시작해요.
     </p>
     <div style="text-align:center;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
-      <button id="openBtn" onclick="openArena()">🟢 아레나 열기</button>
-      <button id="endBtn" onclick="endArena()">🔴 아레나 종료하기</button>
+      <button id="endBtn" onclick="showResult()">📊 아레나 결과 보기</button>
+      <button id="restartBtn" onclick="restartArena()">🔄 다시 시작하기</button>
     </div>
     <div id="arenaMsg" class="regmsg" style="text-align:center"></div>
   </div>
@@ -908,11 +908,11 @@ function applyArenaState(){
   const st = $('arenaState');
   if(st){
     st.textContent = open ? '🟢 진행 중 (학생 등록·대결 가능)'
-                          : '🔴 종료됨 (학생 화면 잠김 + 마무리 질문)';
+                          : '📊 결과 보기 중 (대결 멈춤, 순위·질문 표시)';
   }
-  const ob = $('openBtn'), eb = $('endBtn');
-  if(ob){ ob.disabled = open; ob.textContent = (ended ? '🟢 아레나 다시 열기' : '🟢 아레나 열기'); }
-  if(eb){ eb.disabled = !open; }
+  const eb = $('endBtn'), rb = $('restartBtn');
+  if(eb){ eb.disabled = !open; }      // 진행 중일 때만 결과 보기 가능
+  if(rb){ rb.disabled = open; }       // 결과 보기 상태일 때만 다시 시작 가능
 
   if(teacherMode){
     if(ended){ renderRanking(); }
@@ -991,17 +991,27 @@ async function setPhase(phase, okMsg){
   }
 }
 
-async function openArena(){
-  if(isOpen()) return;
-  if(!confirm('아레나를 열까요?\n학생들이 등록·대결을 시작할 수 있게 됩니다.')) return;
-  await setPhase('open', '아레나를 열었어요! 학생들이 이제 시작할 수 있어요.');
+async function showResult(){
+  if(arenaPhase==='ended') return;
+  if(!confirm('아레나 결과를 볼까요?\n대결이 멈추고 학생 화면에 순위·질문이 떠요. (점수는 보존)')) return;
+  await setPhase('ended', '결과 보기로 전환했어요. 학생 화면에 순위·질문이 떴습니다.');
 }
 
-async function endArena(){
-  if(arenaPhase==='ended') return;
-  if(!confirm('아레나를 종료할까요?\n학생 화면이 잠기고 마무리 질문이 뜹니다. (현황 데이터는 보존)')) return;
+async function restartArena(){
+  if(isOpen()) return;
+  if(!confirm('다시 시작할까요?\n모든 모델의 점수가 0으로 초기화되고 새 라운드가 시작돼요. (등록 목록은 유지)')) return;
   if(!askPin()) return;
-  await setPhase('ended', '아레나를 종료했어요. 학생 화면이 잠기고 질문이 떴습니다.');
+  if(!dbReady){ alert('Supabase 연결 정보를 먼저 코드 상단에 넣어주세요.'); return; }
+  try{
+    // 모든 모델 점수 0으로 초기화
+    const { error: e1 } = await sb.from('models').update({ fooled:0, defended:0 }).neq('id', -1);
+    if(e1) throw e1;
+    await setPhase('open', '점수를 초기화하고 새 라운드를 시작했어요!');
+    loadTeacher(true);
+  }catch(e){
+    $('arenaMsg').className='regmsg err';
+    $('arenaMsg').textContent = '다시 시작 실패: ' + e.message;
+  }
 }
 
 function boot(){
