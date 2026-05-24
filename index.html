@@ -878,6 +878,7 @@ function applyArenaState(){
   ['regBtn','startBtn','roundBtn'].forEach(id=>{
     if($(id)) $(id).disabled = arenaClosed;
   });
+  if(arenaClosed){ running = false; }  // 종료되면 웹캠 인식 루프 정지
   // 선생님 화면 상태 표시 + 버튼 토글
   const st = $('arenaState');
   if(st){ st.textContent = arenaClosed ? '🔴 종료됨 (학생 등록·대결 잠김)' : '🟢 진행 중'; }
@@ -904,40 +905,7 @@ function applyArenaState(){
 const MIN_TRIES = 3;  // 순위에 들려면 최소 시도 횟수
 
 async function renderRanking(){
-  if(!dbReady) return;
-  let data;
-  try{
-    const res = await sb.from('models').select('name,fooled,defended');
-    if(res.error) throw res.error;
-    data = res.data || [];
-  }catch(e){ return; }
-
-  // 방어율 계산 + 최소 시도 횟수 필터
-  const ranked = data.map(r=>{
-    const f = r.fooled||0, d = r.defended||0, tot = f+d;
-    return { name:r.name, f, d, tot, rate: tot? Math.round(d/tot*100) : 0 };
-  }).filter(r=> r.tot >= MIN_TRIES)
-    .sort((a,b)=> b.rate - a.rate || b.tot - a.tot);
-
-  const medal = ['🥇','🥈','🥉'];
-  const cls = ['gold','silver','bronze'];
-  let rows = '';
-  if(ranked.length===0){
-    rows = `<div class="rankempty">아직 ${MIN_TRIES}번 이상 대결한 모델이 없어요.</div>`;
-  }else{
-    ranked.forEach((r,i)=>{
-      rows += `<div class="rankrow ${cls[i]||''}">
-        <span class="pos">${medal[i]||(i+1)}</span>
-        <span class="rname">👤 ${escapeHtml(r.name)}</span>
-        <span class="rdef">${r.rate}%<span class="rsub">방어율 (막음 ${r.d}/${r.tot})</span></span>
-      </div>`;
-    });
-  }
-
-  const rankHtml = `
-    <h3>🏆 최종 순위 — 가장 튼튼한 AI는?</h3>
-    ${rows}`;
-
+  // 질문 블록은 데이터 로딩과 무관하게 항상 만든다
   const quizHtml = `
     <div style="padding:16px;border-radius:14px;background:var(--bg2);border:1px dashed var(--line)">
       <div style="font-family:'Jua',sans-serif;font-size:17px;margin-bottom:10px">💭 다 함께 생각해 봐요</div>
@@ -948,13 +916,44 @@ async function renderRanking(){
       </div>
     </div>`;
 
-  // 학생 화면: 질문만
+  // 학생 화면: 질문만 (항상 표시)
   const sBox = $('studentRank');
   if(sBox){ sBox.innerHTML = quizHtml; sBox.style.display='block'; }
 
-  // 선생님 화면: 순위 + 질문
+  // 선생님 화면: 순위표 + 질문 (데이터가 있으면 순위까지)
   const tBox = $('teacherRank');
-  if(tBox){ tBox.innerHTML = rankHtml + '<div style="margin-top:18px"></div>' + quizHtml; tBox.style.display='block'; }
+  if(!tBox) return;
+  let rankHtml = '<h3>🏆 최종 순위 — 가장 튼튼한 AI는?</h3>';
+  if(dbReady){
+    try{
+      const res = await sb.from('models').select('name,fooled,defended');
+      if(res.error) throw res.error;
+      const data = res.data || [];
+      const ranked = data.map(r=>{
+        const f = r.fooled||0, d = r.defended||0, tot = f+d;
+        return { name:r.name, f, d, tot, rate: tot? Math.round(d/tot*100) : 0 };
+      }).filter(r=> r.tot >= MIN_TRIES)
+        .sort((a,b)=> b.rate - a.rate || b.tot - a.tot);
+
+      const medal = ['🥇','🥈','🥉'];
+      const cls = ['gold','silver','bronze'];
+      if(ranked.length===0){
+        rankHtml += `<div class="rankempty">아직 ${MIN_TRIES}번 이상 대결한 모델이 없어요.</div>`;
+      }else{
+        ranked.forEach((r,i)=>{
+          rankHtml += `<div class="rankrow ${cls[i]||''}">
+            <span class="pos">${medal[i]||(i+1)}</span>
+            <span class="rname">👤 ${escapeHtml(r.name)}</span>
+            <span class="rdef">${r.rate}%<span class="rsub">방어율 (막음 ${r.d}/${r.tot})</span></span>
+          </div>`;
+        });
+      }
+    }catch(e){
+      rankHtml += '<div class="rankempty">순위를 불러오지 못했어요.</div>';
+    }
+  }
+  tBox.innerHTML = rankHtml + '<div style="margin-top:18px"></div>' + quizHtml;
+  tBox.style.display='block';
 }
 
 async function toggleArena(){
@@ -985,7 +984,17 @@ function boot(){
     showTeacherView();
   }else{
     initDB();
+    startStudentArenaWatch();
   }
+}
+
+// 학생 화면: 5초마다 아레나 상태를 확인해, 선생님이 종료하면 자동으로 잠김
+let studentWatch = null;
+function startStudentArenaWatch(){
+  if(studentWatch) return;
+  studentWatch = setInterval(()=>{
+    if(dbReady) checkArena();
+  }, 5000);
 }
 
 function initDBcore(){
