@@ -472,8 +472,8 @@
    ▼▼▼ 여기 두 줄만 본인 Supabase 값으로 바꾸세요 ▼▼▼
    (Supabase 대시보드 → Project Settings → Data API / API Keys 에서 복사)
    ════════════════════════════════════════════════════════════ */
-const SUPABASE_URL  = "https://cpnmlvfqstjxwikskhit.supabase.co";   // 예: https://abcd1234.supabase.co
-const SUPABASE_ANON = "sb_publishable_Zo0KKdFY8R_XW64W_pzDkw_PWuTf8O6"; // 예: eyJhbGciOi... (긴 키)
+const SUPABASE_URL  = "여기에_PROJECT_URL_붙여넣기";   // 예: https://abcd1234.supabase.co
+const SUPABASE_ANON = "여기에_ANON_PUBLIC_KEY_붙여넣기"; // 예: eyJhbGciOi... (긴 키)
 const TEACHER_PIN   = "1234";  // 선생님 삭제용 PIN (원하는 값으로 바꾸세요)
 /* ════════════════════════════════════════════════════════════ */
 
@@ -903,22 +903,27 @@ async function renderRanking(){
     });
   }
 
-  const html = `
+  const rankHtml = `
     <h3>🏆 최종 순위 — 가장 튼튼한 AI는?</h3>
-    ${rows}
-    <div style="margin-top:18px;padding:16px;border-radius:14px;background:var(--bg2);border:1px dashed var(--line)">
+    ${rows}`;
+
+  const quizHtml = `
+    <div style="padding:16px;border-radius:14px;background:var(--bg2);border:1px dashed var(--line)">
       <div style="font-family:'Jua',sans-serif;font-size:17px;margin-bottom:10px">💭 다 함께 생각해 봐요</div>
       <div style="font-size:15px;line-height:1.9;color:var(--ink)">
-        ① 내가 시험한 모델은 몇 번 중 몇 번 막았나요? 방어율은 몇 %였나요?<br>
+        ① 나의 모델은 몇 번 중 몇 번 막았나요? 방어율은 몇 %였나요?<br>
         ② 1등 모델은 왜 잘 막았을까요? 어떤 점이 달랐을까요?<br>
-        ③ 내 모델의 정확도를 높이려면 무엇을 해야 할까요?<br>
+        ③ 내 모델의 정확도를 높이려면 무엇을 해야 할까요?
       </div>
     </div>`;
 
-  ['studentRank','teacherRank'].forEach(id=>{
-    const box = $(id);
-    if(box){ box.innerHTML = html; box.style.display='block'; }
-  });
+  // 학생 화면: 질문만
+  const sBox = $('studentRank');
+  if(sBox){ sBox.innerHTML = quizHtml; sBox.style.display='block'; }
+
+  // 선생님 화면: 순위 + 질문
+  const tBox = $('teacherRank');
+  if(tBox){ tBox.innerHTML = rankHtml + '<div style="margin-top:18px"></div>' + quizHtml; tBox.style.display='block'; }
 }
 
 async function toggleArena(){
