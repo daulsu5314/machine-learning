@@ -263,6 +263,44 @@
   }
   .teacher-enter:hover{color:var(--ink);border-color:var(--accent)}
   .teacher-enter:active{transform:none;box-shadow:none}
+
+  /* ▼ 튜토리얼 버튼 & 모달 (추가) */
+  .tut-btn{
+    display:inline-block;text-decoration:none;
+    font-family:'Jua',sans-serif;font-size:16px;cursor:pointer;
+    background:var(--bg2);color:#cfc8ff;border:1px solid var(--accent);
+    border-radius:12px;padding:13px 24px;
+    box-shadow:0 6px 0 #14163a;transition:filter .12s, transform .12s;
+  }
+  .tut-btn:hover{filter:brightness(1.12)}
+  .tut-btn:active{transform:translateY(4px);box-shadow:0 2px 0 #14163a}
+  .tut-overlay{
+    position:fixed;inset:0;background:rgba(8,7,20,.85);
+    display:none;align-items:flex-start;justify-content:center;
+    padding:24px 14px;z-index:100;overflow-y:auto;
+  }
+  .tut-overlay.on{display:flex;animation:tutfade .2s ease}
+  @keyframes tutfade{from{opacity:0}to{opacity:1}}
+  .tut-modal{
+    background:var(--card);border:1px solid var(--line);border-radius:22px;
+    max-width:960px;width:100%;padding:22px;position:relative;
+    box-shadow:0 24px 60px rgba(0,0,0,.5);animation:tutpop .25s ease;
+  }
+  @keyframes tutpop{from{transform:scale(.96);opacity:0}to{transform:scale(1);opacity:1}}
+  .tut-modal h3{font-family:'Jua',sans-serif;font-weight:400;font-size:22px;text-align:center;margin-bottom:4px}
+  .tut-modal .tsub{color:var(--muted);font-size:13px;text-align:center;margin-bottom:16px}
+  .tut-modal .tclose{
+    position:absolute;top:14px;right:16px;width:34px;height:34px;border-radius:50%;
+    background:var(--bg2);color:var(--ink);border:1px solid var(--line);font-size:16px;
+    box-shadow:none;padding:0;
+  }
+  .tut-modal .tclose:hover{border-color:var(--lose);color:var(--lose)}
+  .tut-modal .tclose:active{transform:none;box-shadow:none}
+  .tut-img{width:100%;border-radius:14px;border:1px solid var(--line);display:block}
+  .tut-steps{margin-top:16px;background:var(--bg2);border:1px dashed var(--line);
+    border-radius:14px;padding:14px 18px;font-size:14px;line-height:1.9}
+  .tut-steps b{color:#cfc8ff}
+  .tut-steps ol{margin:6px 0 0;padding-left:22px}
 </style>
 </head>
 <body>
@@ -298,10 +336,11 @@
       순서가 다르면 막대 색·이모지 매칭과 자동 채점이 어긋나요.
       TM에서 클래스 이름을 위 순서대로 <b>가위 → 바위 → 보</b>로 만든 뒤 학습시켜 주세요.
     </div>
-    <div style="text-align:center;margin-top:14px">
+    <div style="text-align:center;margin-top:14px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
       <a href="https://teachablemachine.withgoogle.com/train/image" target="_blank" rel="noopener" class="tm-link">
         🚀 Teachable Machine에서 모델 만들기 ↗
       </a>
+      <button type="button" class="tut-btn" onclick="openTut()">📖 튜토리얼 보기</button>
     </div>
   </div>
 
@@ -312,6 +351,7 @@
       처음 한 번만, 내 <b>이름</b>과 Teachable Machine <b>모델 링크</b>를 등록하세요.
       그러면 친구들은 긴 주소를 칠 필요 없이 <b>이름만 골라</b> 내 모델을 불러올 수 있어요.
       <br>📌 등록 전에 클래스가 <b>1=가위, 2=바위, 3=보</b> 순서인지 다시 확인!
+      <br>❓ 만드는 방법을 모르겠다면 위 <b>📖 튜토리얼 보기</b>를 눌러보세요.
     </p>
     <div class="inputrow">
       <input type="text" id="regName" placeholder="이름 (예: 1반 김민수)" style="max-width:200px" />
@@ -468,6 +508,28 @@
   <footer>학생용 화면은 주소에서 <b>?teacher</b>를 빼거나, 페이지를 새로고침하면 나와요</footer>
 </div>
 
+<!-- ════════ 튜토리얼 모달 (추가) ════════ -->
+<div class="tut-overlay" id="tutOverlay" onclick="if(event.target===this)closeTut()">
+  <div class="tut-modal">
+    <button type="button" class="tclose" onclick="closeTut()">✕</button>
+    <h3>📖 Teachable Machine으로 AI 만들기</h3>
+    <div class="tsub">아래 순서대로 따라 하면 나만의 가위바위보 AI를 만들 수 있어요!</div>
+    <img class="tut-img" src="tutorial.png" alt="Teachable Machine 튜토리얼 7단계" />
+    <div class="tut-steps">
+      💡 <b>요약</b>
+      <ol>
+        <li>클래스 이름을 <b>가위 / 바위 / 보</b>로 바꾸기 (순서: 1=가위, 2=바위, 3=보)</li>
+        <li>웹캠으로 각 동작을 <b>최소 10장씩</b> 촬영</li>
+        <li><b>모델 학습시키기</b> 버튼 누르기</li>
+        <li><b>모델 내보내기</b> 누르기</li>
+        <li><b>모델 업로드</b> 누르기</li>
+        <li><b>공유 가능한 링크 복사</b></li>
+        <li>위 등록소에 <b>이름과 링크</b>를 붙여넣고 등록!</li>
+      </ol>
+    </div>
+  </div>
+</div>
+
 <script>
 /* ════════════════════════════════════════════════════════════
    ▼▼▼ 여기 두 줄만 본인 Supabase 값으로 바꾸세요 ▼▼▼
@@ -486,6 +548,11 @@ let arenaPhase = 'open';  // 'open' | 'ended' (기본은 열림)
 function isOpen(){ return arenaPhase === 'open'; }
 
 function $(id){return document.getElementById(id)}
+
+/* ▼ 튜토리얼 모달 열고 닫기 (추가) */
+function openTut(){ $('tutOverlay').classList.add('on'); document.body.style.overflow='hidden'; }
+function closeTut(){ $('tutOverlay').classList.remove('on'); document.body.style.overflow=''; }
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeTut(); });
 
 function initDB(){
   const placeholder = SUPABASE_URL.indexOf('여기에') === 0;
@@ -569,7 +636,6 @@ function chooseFriend(el, row){
   $('foolScore').textContent = target.fooled;
   $('defScore').textContent = target.defended;
   updateVerdict();
-  // 이미 웹캠이 켜져 있으면, 새 친구 모델로 바꾸라고 버튼을 강조
   const btn = $('startBtn');
   if(running){
     btn.textContent = '▶ ' + row.name + ' 모델 불러오기';
@@ -598,11 +664,9 @@ async function startApp(){
     const metadataURL = url + 'metadata.json';
     const newModel = await tmImage.load(modelURL, metadataURL);
 
-    // 모델 교체
     model = newModel;
     maxPred = model.getTotalClasses();
 
-    // 웹캠은 한 번만 만들고 재사용 (친구 바꿔도 캔버스 중복 안 쌓이게)
     if(!webcam){
       $('status').textContent = '카메라 켜는 중…';
       webcam = new tmImage.Webcam(300, 300, true);
@@ -710,12 +774,12 @@ async function judgeRound(){
   }
 
   const aiName = NAMES[win.i];
-  const myName = NAMES[myIntent];
+  const myPickName = NAMES[myIntent];
   const fooled = (win.i !== myIntent);
 
   if(fooled){
     r.className='roundresult ok';
-    r.textContent = `🎉 속이기 성공! (${myName} 냈는데 AI는 ${aiName}로 봄) → 이 모델 약점 +1`;
+    r.textContent = `🎉 속이기 성공! (${myPickName} 냈는데 AI는 ${aiName}로 봄) → 이 모델 약점 +1`;
   }else{
     r.className='roundresult no';
     r.textContent = `🛡️ 못 속였어요! AI가 ${aiName}를 정확히 막아냄 → 이 모델 상점 +1`;
@@ -778,11 +842,11 @@ function showTeacherView(){
 
 let teacherTimer = null;
 function startTeacherAutoRefresh(){
-  if(teacherTimer) return;            // 이미 돌고 있으면 중복 방지
+  if(teacherTimer) return;
   teacherTimer = setInterval(()=>{
     if(!dbReady) return;
-    loadTeacher(true);                 // 조용히 모델별 현황 갱신
-    checkArena();                      // 아레나 상태 + (종료 시) 순위표 갱신
+    loadTeacher(true);
+    checkArena();
   }, 5000);
 }
 
@@ -884,10 +948,8 @@ function applyArenaState(){
   const studentWrap = document.querySelector('.wrap:not(#teacherView)');
 
   if(teacherMode){
-    // 선생님 모드: 학생 화면 전체를 숨기고 선생님 화면만 보이게
     if(studentWrap) studentWrap.style.display = 'none';
   }else{
-    // 학생 모드: 열림이면 전부 보이기, 종료면 배너+질문만
     if(studentWrap) studentWrap.style.display = '';
     if($('closedBanner')) $('closedBanner').style.display = ended ? 'block' : 'none';
 
@@ -907,15 +969,14 @@ function applyArenaState(){
     else if($('studentRank')){ $('studentRank').style.display='none'; }
   }
 
-  // 선생님 화면 상태 표시 + 버튼
   const st = $('arenaState');
   if(st){
     st.textContent = open ? '🟢 진행 중 (학생 등록·대결 가능)'
                           : '📊 결과 보기 중 (대결 멈춤, 순위·질문 표시)';
   }
   const eb = $('endBtn'), rb = $('restartBtn');
-  if(eb){ eb.disabled = !open; }      // 진행 중일 때만 결과 보기 가능
-  if(rb){ rb.disabled = open; }       // 결과 보기 상태일 때만 다시 시작 가능
+  if(eb){ eb.disabled = !open; }
+  if(rb){ rb.disabled = open; }
 
   if(teacherMode){
     if(ended){ renderRanking(); }
@@ -923,7 +984,7 @@ function applyArenaState(){
   }
 }
 
-const MIN_TRIES = 3;  // 순위에 들려면 최소 시도 횟수
+const MIN_TRIES = 3;
 
 async function renderRanking(){
   const quizHtml = `
@@ -936,7 +997,6 @@ async function renderRanking(){
       </div>
     </div>`;
 
-  // 데이터로 순위 + 내 모델 결과 계산
   let rankHtml = '<h3>🏆 최종 순위 — 가장 튼튼한 AI는?</h3>';
   let myHtml = '';
   if(dbReady){
@@ -945,7 +1005,6 @@ async function renderRanking(){
       if(res.error) throw res.error;
       const data = res.data || [];
 
-      // 내 모델 결과
       if(myName){
         const mine = data.find(r=> r.name === myName);
         if(mine){
@@ -963,7 +1022,6 @@ async function renderRanking(){
         }
       }
 
-      // 순위
       const ranked = data.map(r=>{
         const f = r.fooled||0, d = r.defended||0, tot = f+d;
         return { name:r.name, f, d, tot, rate: tot? Math.round(d/tot*100) : 0 };
@@ -992,7 +1050,6 @@ async function renderRanking(){
       <button class="teacher-enter" onclick="enterTeacher()">👩‍🏫 선생님용</button>
     </div>`;
 
-  // 학생 화면: 내 결과 → 순위 → 질문 → 선생님용 버튼
   const sBox = $('studentRank');
   if(sBox){
     sBox.innerHTML = myHtml
@@ -1001,7 +1058,6 @@ async function renderRanking(){
     sBox.style.display='block';
   }
 
-  // 선생님 화면: 순위 + 질문
   const tBox = $('teacherRank');
   if(tBox){
     tBox.innerHTML = rankHtml + '<div style="margin-top:18px"></div>' + quizHtml;
@@ -1038,7 +1094,6 @@ async function restartArena(){
   if(!askPin()) return;
   if(!dbReady){ alert('Supabase 연결 정보를 먼저 코드 상단에 넣어주세요.'); return; }
   try{
-    // 모든 모델 점수 0으로 초기화
     const { error: e1 } = await sb.from('models').update({ fooled:0, defended:0 }).neq('id', -1);
     if(e1) throw e1;
     await setPhase('open', '점수를 초기화하고 새 라운드를 시작했어요!');
@@ -1058,7 +1113,6 @@ function boot(){
   }
 }
 
-// 학생 화면: 5초마다 아레나 상태를 확인해, 선생님이 종료하면 자동으로 잠김
 let studentWatch = null;
 function startStudentArenaWatch(){
   if(studentWatch) return;
